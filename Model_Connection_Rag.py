@@ -15,8 +15,8 @@ Question:
 """
 prompt = PromptTemplate(template=prompt_template, input_variables=['context', 'question'])
 
-api_key = "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"
-model_id = "deepseek/deepseek-r1-distill-qwen-14b:free"
+api_key = "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"
+model_id = "deepseek/deepseek-r1-distill-qwen-32b:free"
 url = "https://openrouter.ai/api/v1/chat/completions"
 headers = {
     "Authorization": f"Bearer {api_key}",
