@@ -1,0 +1,71 @@
+import os
+import requests
+from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_core.prompts import PromptTemplate
+prompt_template = """Your give the answer to the medical questions. If you know the answer give the answer. Give Output in english
+
+Context:
+{context}
+
+Question:
+{question}
+"""
+prompt = PromptTemplate(template=prompt_template, input_variables=['context', 'question'])
+
+api_key = "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"
+model_id = "deepseek/deepseek-r1-distill-qwen-14b:free"
+url = "https://openrouter.ai/api/v1/chat/completions"
+headers = {
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json"
+}
+
+embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+embeddings = SentenceTransformerEmbeddings(model_name=embedding_model)
+
+faiss_index_path = "index"
+
+if os.path.exists(f"{faiss_index_path}.faiss"):
+    try:
+        db = FAISS.load_local(faiss_index_path, embeddings, allow_dangerous_deserialization=True)
+    except Exception as e:
+        print("Error loading FAISS index:", e)
+        exit(1)
+else:
+    print("❌ FAISS index file not found.")
+    exit(1)
+
+retriever = db.as_retriever(search_kwargs={"k": 3})
+
+def query_openrouter(prompt_text):
+    payload = {
+        "model": model_id,
+        "messages": [{"role": "user", "content": prompt_text}]
+    }
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        return result['choices'][0]['message']['content']
+    except Exception as e:
+        print("❌ API error:", e)
+        return None
+
+
+while True:
+    query = input("🔍 Enter the query or type 'exit': ").strip()
+    if query.lower() == "exit":
+        break
+
+    retrieved_docs = retriever.get_relevant_documents(query)
+    context = "\n".join([doc.page_content for doc in retrieved_docs])
+    full_prompt = prompt.format(context=context, question=query)
+
+    answer = query_openrouter(full_prompt)
+
+    print("\n=========================")
+    print(f"🟢 Question: {query}")
+    print(f"🟡 Answer: {answer if answer else 'No answer returned.'}")
+    print("=========================\n")
+
