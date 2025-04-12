@@ -5,9 +5,9 @@ from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import PromptTemplate
 from Vector_Data_Store_Embed import create_index_file
-
+import streamlit as st
 # Load environment variables
-load_dotenv()
+
 
 api_key = st.secrets["OPENROUTER_API_KEY"]
 if not api_key:
