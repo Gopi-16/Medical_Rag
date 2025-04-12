@@ -9,8 +9,7 @@ from Vector_Data_Store_Embed import create_index_file
 # Load environment variables
 load_dotenv()
 
-# Fetch API key from .env securely
-api_key = os.getenv("OPENROUTER_API_KEY")
+api_key = st.secrets["OPENROUTER_API_KEY"]
 if not api_key:
     raise ValueError("API key not found. Make sure it's set in the .env file as OPENROUTER_API_KEY")
 
