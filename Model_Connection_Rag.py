@@ -1,11 +1,35 @@
 import os
 import requests
+from dotenv import load_dotenv
 from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import PromptTemplate
 from Vector_Data_Store_Embed import create_index_file
 
-prompt_template = """Your give the answer to the medical questions. If you know the answer give the answer. Give Output in english
+# Load environment variables
+load_dotenv()
+
+# Fetch API key from .env securely
+api_key = os.getenv("OPENROUTER_API_KEY")
+if not api_key:
+    raise ValueError("API key not found. Make sure it's set in the .env file as OPENROUTER_API_KEY")
+
+# API and model details
+model_id = "deepseek/deepseek-r1-distill-qwen-32b:free"
+url = "https://openrouter.ai/api/v1/chat/completions"
+headers = {
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json"
+}
+
+# Embedding model
+embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+embeddings = SentenceTransformerEmbeddings(model_name=embedding_model)
+faiss_index_path = "index"
+
+# Prompt template
+prompt_template = """
+Your job is to answer medical questions. If you know the answer, provide it. Only respond in English.
 
 Context:
 {context}
@@ -15,32 +39,21 @@ Question:
 """
 prompt = PromptTemplate(template=prompt_template, input_variables=['context', 'question'])
 
-api_key = "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"
-model_id = "deepseek/deepseek-r1-distill-qwen-32b:free"
-url = "https://openrouter.ai/api/v1/chat/completions"
-headers = {
-    "Authorization": f"Bearer {api_key}",
-    "Content-Type": "application/json"
-}
-
-embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
-embeddings = SentenceTransformerEmbeddings(model_name=embedding_model)
-
-faiss_index_path = "index"
 def faiss_loading():
+    """Load or create FAISS index and return a retriever."""
     if os.path.exists(f"{faiss_index_path}.faiss"):
         try:
             db = FAISS.load_local(faiss_index_path, embeddings, allow_dangerous_deserialization=True)
             retriever = db.as_retriever(search_kwargs={"k": 3})
             return retriever
         except Exception as e:
-            index_file=create_index_file()
-
+            print("Error loading FAISS index, recreating...", e)
+            create_index_file()
     else:
-        index_file=create_index_file()
-    db=FAISS.load_local(faiss_index_path,embeddings,allow_dangerous_deserialization=True)
-    retriever = db.as_retriever(search_kwargs={"k": 3})
-    return retriever
+        print("Index not found, creating...")
+        create_index_file()
+    db = FAISS.load_local(faiss_index_path, embeddings, allow_dangerous_deserialization=True)
+    return db.as_retriever(search_kwargs={"k": 3})
 
 def query_openrouter(prompt_text):
     payload = {
@@ -52,22 +65,24 @@ def query_openrouter(prompt_text):
         response.raise_for_status()
         result = response.json()
         return result['choices'][0]['message']['content']
-    except Exception as e:
-        print("❌ API error:", e)
-        return e
+    except requests.exceptions.RequestException as e:
+        print("❌ API request failed:", e)
+        return "API request failed: " + str(e)
+    except KeyError:
+        print("❌ Unexpected API response format:", response.text)
+        return "Unexpected API response format."
 
 def question(query):
     try:
-        retrivers=faiss_loading()
-        retrieved_docs = retrivers.get_relevant_documents(query)
+        retriever = faiss_loading()
+        retrieved_docs = retriever.get_relevant_documents(query)
         context = "\n".join([doc.page_content for doc in retrieved_docs])
         full_prompt = prompt.format(context=context, question=query)
-
         answer = query_openrouter(full_prompt)
+        return answer
     except Exception as e:
-        return e
+        print("❌ Error in processing question:", e)
+        return f"Error: {str(e)}"
 
-    return answer
-
-    
-
+# Example usage:
+# print(question("What are the symptoms of diabetes?"))
