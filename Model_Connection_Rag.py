@@ -14,7 +14,7 @@ if not api_key:
     raise ValueError("API key not found. Make sure it's set in the .env file as OPENROUTER_API_KEY")
 
 # API and model details
-model_id = "deepseek/deepseek-r1-distill-qwen-32b:free"
+model_id = "deepseek/deepseek-chat-v3.1"
 url = "https://openrouter.ai/api/v1/chat/completions"
 headers = {
     "Authorization": f"Bearer {api_key}",
