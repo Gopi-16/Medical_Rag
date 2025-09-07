@@ -9,7 +9,7 @@ import streamlit as st
 # Load environment variables
 
 
-api_key = st.secrets["OPENROUTER_API_KEY"]
+api_key = st.secrets["OPENROUTER_API"]
 if not api_key:
     raise ValueError("API key not found. Make sure it's set in the .env file as OPENROUTER_API_KEY")
 
